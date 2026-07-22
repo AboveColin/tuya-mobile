@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tuya-mobile"
+version = "1.0.0"
+description = "Pure-Python Tuya mobile-app API signer, client, and MQTT signaling credentials (no native libs, no qemu)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "aiohttp",
+    "cryptography",
+]
+
+[project.urls]
+Homepage = "https://github.com/abovecolin/tuya-mobile"
+
+[tool.setuptools.packages.find]
+include = ["tuya_mobile*"]

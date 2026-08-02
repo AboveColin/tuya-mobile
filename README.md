@@ -20,6 +20,9 @@ works.
 - **`TuyaMobileClient(signer, session)`** — the encrypted mobile API flow
   (`thing.m.user.third.login`, signed/encrypted `_call`, local-key retrieval,
   cloud DP get/publish).
+- **`TuyaPasswordClient(profile, session, username=…)`** — email/telephone
+  password login and atomic `localKey` + `secKey` retrieval for a specific
+  device. Session tokens and passwords are never persisted by the client.
 - **`mqtt_credentials(signer, uid=…, ecode=…, partner_id=…)`** — MQTT broker
   username/password + signaling topics for the `smart/mb` channel.
 - **`mqtt_client_id(package)`** — isolated mobile-format client ID for a
@@ -49,6 +52,12 @@ async with aiohttp.ClientSession() as session:
     await client.login_with_jwt(id_token, country_code="1", platform="…")
     status = await client.get_device_status(device_id)
 ```
+
+Password login uses a caller-supplied `TuyaMobileAppProfile`. Application
+profiles contain public, version-specific Android application identity data;
+this package deliberately does not bundle a Smart Life or Tuya Smart profile.
+Interactive captcha, MFA, QR, and social logins raise typed exceptions so a
+caller can safely offer manual device credentials instead.
 
 ## License
 

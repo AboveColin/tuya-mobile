@@ -85,6 +85,7 @@ class TuyaMobileClient:
         *,
         app_id: Optional[str] = None,
         device_id: str = "",
+        request_timeout: float = 20,
     ) -> None:
         self.signer = signer
         self.session = session
@@ -97,6 +98,7 @@ class TuyaMobileClient:
         self.mobile_url = self.BASE_URL
         # Tuya validates a stable installation ID; supply the captured value.
         self.device_id = device_id or os.environ.get("PETSERIES_TUYA_DEVICE_ID", "")
+        self.request_timeout = request_timeout
 
     async def _call(self, action: str, payload: Dict[str, Any], *, version: str = "1.0") -> Dict[str, Any]:
         request_id = str(uuid.uuid4())
@@ -129,7 +131,11 @@ class TuyaMobileClient:
         if self.sid:
             params["sid"] = self.sid
         params["sign"] = await asyncio.to_thread(self.signer.sign, canonical_string(params))
-        async with self.session.post(self.mobile_url, data=params) as response:
+        async with self.session.post(
+            self.mobile_url,
+            data=params,
+            timeout=aiohttp.ClientTimeout(total=self.request_timeout),
+        ) as response:
             envelope = await response.json(content_type=None)
         if "result" not in envelope:
             error_code = envelope.get("errorCode") or envelope.get("code") or "unknown"

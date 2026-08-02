@@ -6,6 +6,7 @@ credential derivation. Generic across Tuya-based apps — supply your app's Tuya
 application credentials (extracted from its APK) and it works with no external
 signer service, no qemu, and no native libraries.
 """
+
 from .signer import (
     NativeSignerError,
     NativeTuyaSigner,
@@ -13,7 +14,25 @@ from .signer import (
     colon_hex,
 )
 from .client import TuyaMobileClient, canonical_string
+from .errors import (
+    TuyaMobileAccountLocked,
+    TuyaMobileApiError,
+    TuyaMobileCaptchaRequired,
+    TuyaMobileDeviceNotFound,
+    TuyaMobileError,
+    TuyaMobileInvalidAuth,
+    TuyaMobileInvalidCredentials,
+    TuyaMobileMFARequired,
+    TuyaMobileProfileExpired,
+    TuyaMobileTransportError,
+)
+from .models import (
+    TuyaDeviceCredentials,
+    TuyaMobileAppProfile,
+    TuyaMobileSession,
+)
 from .mqtt_auth import mqtt_client_id, mqtt_credentials, mqtt_password, mqtt_username
+from .password_client import TuyaPasswordClient
 
 __all__ = [
     "PurePythonTuyaSigner",
@@ -22,10 +41,24 @@ __all__ = [
     "colon_hex",
     "TuyaMobileClient",
     "canonical_string",
+    "TuyaPasswordClient",
+    "TuyaMobileAppProfile",
+    "TuyaMobileSession",
+    "TuyaDeviceCredentials",
+    "TuyaMobileError",
+    "TuyaMobileApiError",
+    "TuyaMobileInvalidAuth",
+    "TuyaMobileMFARequired",
+    "TuyaMobileCaptchaRequired",
+    "TuyaMobileAccountLocked",
+    "TuyaMobileProfileExpired",
+    "TuyaMobileTransportError",
+    "TuyaMobileDeviceNotFound",
+    "TuyaMobileInvalidCredentials",
     "mqtt_credentials",
     "mqtt_client_id",
     "mqtt_username",
     "mqtt_password",
 ]
 
-__version__ = "0.1.0"
+__version__ = "1.1.0"

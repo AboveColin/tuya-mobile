@@ -13,6 +13,14 @@ class TuyaMobileInvalidAuth(TuyaMobileApiError):
     """The account identifier or password was rejected."""
 
 
+class TuyaMobileLoginAttemptsExceeded(TuyaMobileInvalidAuth):
+    """The bounded password-submission budget was exhausted."""
+
+
+class TuyaMobileEndpointUnsupported(TuyaMobileApiError):
+    """The selected mobile API login variant is unavailable."""
+
+
 class TuyaMobileMFARequired(TuyaMobileApiError):
     """Interactive multi-factor authentication is required."""
 

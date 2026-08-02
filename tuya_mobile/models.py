@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
 
-from .signer import colon_hex
-
 
 @dataclass(frozen=True)
 class TuyaMobileAppProfile:
@@ -19,15 +17,15 @@ class TuyaMobileAppProfile:
     app_key: str = field(repr=False)
     package: str
     app_version: str
-    channel_key: str
     ttid: str
     sdk_version: str
     device_core_version: str
     os_system: str = "14"
     platform: str = "Android"
-    channel: str = "oem"
+    channel: str = "sdk"
     app_rn_version: str = ""
-    et: str = "0"
+    et: str = "3"
+    business_domain: str = ""
     endpoints: tuple[str, ...] = (
         "https://a1.tuyaeu.com/api.json",
         "https://a1.tuyaus.com/api.json",
@@ -35,15 +33,6 @@ class TuyaMobileAppProfile:
         "https://a1.tuyacn.com/api.json",
         "https://a1.tuyain.com/api.json",
     )
-
-    @property
-    def native_key(self) -> bytes:
-        """Return the request-signing key used by the Android application."""
-        material = (
-            f"{self.package}_{colon_hex(self.cert_sha256_hex)}_"
-            f"{self.app_key}_{self.app_secret}"
-        )
-        return material.encode("ascii")
 
     def stable_device_id(self, username: str) -> str:
         """Return a stable, account-scoped installation identifier."""

@@ -55,12 +55,14 @@ async with aiohttp.ClientSession() as session:
 ```
 
 Password login uses a caller-supplied `TuyaMobileAppProfile`. Application
-profiles contain public, version-specific Android application identity data;
+profiles contain the version-specific APK constants used to identify and sign
+as that application: `app_id`, `app_secret`, certificate SHA-256, `app_key`, and
+package name. They also carry the request's app version, SDK/core versions,
+channel, platform, `ttid`, `et`, optional React Native version, and optional
+business domain. These are application-level inputs, not user credentials;
 this package deliberately does not bundle a Smart Life or Tuya Smart profile.
-The profile drives the request's app version, SDK/core versions, channel,
-platform, `ttid`, `et`, optional React Native version, and optional business
-domain. The signing material remains owned by `PurePythonTuyaSigner`, so it is
-not duplicated in the profile model.
+`TuyaPasswordClient` passes the profile inputs to `PurePythonTuyaSigner`, which
+remains the sole implementation of derived global material and `chKey`.
 
 Telephone endpoint probing is bounded to three password submissions by default.
 Every permitted variant receives a fresh short-lived token, and only an

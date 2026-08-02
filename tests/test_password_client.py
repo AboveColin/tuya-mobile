@@ -59,7 +59,8 @@ def profile() -> TuyaMobileAppProfile:
 @pytest.fixture
 def token_result() -> dict[str, str]:
     """Return a valid RSA login-token fixture."""
-    key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+    # A small key keeps this protocol-fixture test fast; it protects no data.
+    key = rsa.generate_private_key(public_exponent=65537, key_size=1024)  # noqa: S505
     numbers = key.public_key().public_numbers()
     return {
         "token": "fixture-token",
@@ -125,7 +126,7 @@ async def test_email_login_and_device_credentials_are_atomic(
     assert client.ecode == "fixture-ecode"
 
 
-async def test_phone_login_uses_controlled_endpoint_fallback(
+async def test_phone_login_retries_api_variants(
     profile: TuyaMobileAppProfile, token_result: dict[str, str]
 ) -> None:
     """Phone login retries protocol variants but preserves account safety."""
@@ -442,7 +443,10 @@ def test_client_uses_encrypted_signer_and_stable_installation_id(
 
 def test_password_wire_encoding_is_md5_then_rsa_pkcs1v15() -> None:
     """The password payload matches the documented mobile login encoding."""
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+    # A small key keeps this protocol-fixture test fast; it protects no data.
+    private_key = rsa.generate_private_key(  # noqa: S505
+        public_exponent=65537, key_size=1024
+    )
     numbers = private_key.public_key().public_numbers()
     encrypted = _rsa_encrypt_password(
         "private-password",

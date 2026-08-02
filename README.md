@@ -22,7 +22,8 @@ works.
   cloud DP get/publish).
 - **`TuyaPasswordClient(profile, session, username=…)`** — email/telephone
   password login and atomic `localKey` + `secKey` retrieval for a specific
-  device. Session tokens and passwords are never persisted by the client.
+  device. Passwords and session tokens are never written to durable storage;
+  authenticated session state is retained only in memory for subsequent calls.
 - **`mqtt_credentials(signer, uid=…, ecode=…, partner_id=…)`** — MQTT broker
   username/password + signaling topics for the `smart/mb` channel.
 - **`mqtt_client_id(package)`** — isolated mobile-format client ID for a

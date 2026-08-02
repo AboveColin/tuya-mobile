@@ -153,7 +153,14 @@ def _rsa_encrypt_password(password: str, token: dict[str, Any]) -> str:
         raise TuyaMobileProfileExpired(
             "Tuya mobile login token returned an invalid public key"
         ) from error
-    digest = hashlib.md5(password.encode()).hexdigest().encode("ascii")
+    # Tuya requires RSA-PKCS1v15 over the MD5 hex digest on the wire. This is
+    # protocol encoding, not password storage or a password-verification hash.
+    # ast-grep-ignore: weak-password-hash-python, insecure-hash-functions
+    digest = (
+        hashlib.md5(password.encode(), usedforsecurity=False)  # noqa: S324
+        .hexdigest()
+        .encode("ascii")
+    )
     return public_key.encrypt(digest, padding.PKCS1v15()).hex()
 
 

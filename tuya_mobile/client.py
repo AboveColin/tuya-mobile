@@ -21,6 +21,8 @@ from typing import Any, Dict, Iterable, List, Optional
 import aiohttp
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from .models import TuyaMobileAppProfile
+
 _LOGGER = logging.getLogger(__name__)
 
 SIGN_KEYS = {
@@ -85,6 +87,8 @@ class TuyaMobileClient:
         *,
         app_id: Optional[str] = None,
         device_id: str = "",
+        request_timeout: float = 20,
+        profile: Optional[TuyaMobileAppProfile] = None,
     ) -> None:
         self.signer = signer
         self.session = session
@@ -97,44 +101,63 @@ class TuyaMobileClient:
         self.mobile_url = self.BASE_URL
         # Tuya validates a stable installation ID; supply the captured value.
         self.device_id = device_id or os.environ.get("PETSERIES_TUYA_DEVICE_ID", "")
+        self.request_timeout = request_timeout
+        self.profile = profile
 
-    async def _call(self, action: str, payload: Dict[str, Any], *, version: str = "1.0") -> Dict[str, Any]:
+    async def _call(
+        self, action: str, payload: Dict[str, Any], *, version: str = "1.0"
+    ) -> Dict[str, Any]:
         request_id = str(uuid.uuid4())
         key = await asyncio.to_thread(self.signer.derive_key, request_id, self.ecode)
         encrypted = _encrypt(key, payload)
+        profile = self.profile
         params: Dict[str, str] = {
             "a": action,
             "v": version,
             "clientId": self.app_id,
             "os": "Android",
-            "appVersion": self.APP_VERSION,
-            "channel": "sdk",
-            "osSystem": "14",
-            "sdkVersion": "6.7.0",
-            "deviceCoreVersion": "6.7.0",
-            "platform": "Pixel 7",
+            "appVersion": profile.app_version if profile else self.APP_VERSION,
+            "channel": profile.channel if profile else "sdk",
+            "osSystem": profile.os_system if profile else "14",
+            "sdkVersion": profile.sdk_version if profile else "6.7.0",
+            "deviceCoreVersion": (profile.device_core_version if profile else "6.7.0"),
+            "platform": profile.platform if profile else "Pixel 7",
             "timeZoneId": os.environ.get("PETSERIES_TUYA_TIMEZONE") or "UTC",
             "cp": "gzip",
             "nd": "1",
-            "bizDM": "ipc",
             "lang": os.environ.get("PETSERIES_TUYA_LANG") or "en",
-            "ttid": "android",
-            "et": "3",
+            "ttid": profile.ttid if profile else "android",
+            "et": profile.et if profile else "3",
             "chKey": await asyncio.to_thread(self.signer.channel_key),
             "deviceId": self.device_id or self.uid or "",
             "time": str(int(time.time())),
             "requestId": request_id,
             "postData": encrypted,
         }
+        if profile and profile.app_rn_version:
+            params["appRnVersion"] = profile.app_rn_version
+        if profile and profile.business_domain:
+            params["bizDM"] = profile.business_domain
+        elif not profile:
+            # Preserve the historical camera-oriented default for existing users.
+            params["bizDM"] = "ipc"
         if self.sid:
             params["sid"] = self.sid
-        params["sign"] = await asyncio.to_thread(self.signer.sign, canonical_string(params))
-        async with self.session.post(self.mobile_url, data=params) as response:
+        params["sign"] = await asyncio.to_thread(
+            self.signer.sign, canonical_string(params)
+        )
+        async with self.session.post(
+            self.mobile_url,
+            data=params,
+            timeout=aiohttp.ClientTimeout(total=self.request_timeout),
+        ) as response:
             envelope = await response.json(content_type=None)
         if "result" not in envelope:
             error_code = envelope.get("errorCode") or envelope.get("code") or "unknown"
             error_msg = envelope.get("errorMsg") or envelope.get("msg") or "no result"
-            raise RuntimeError(f"Tuya mobile API request {action} failed: {error_code} {error_msg}")
+            raise RuntimeError(
+                f"Tuya mobile API request {action} failed: {error_code} {error_msg}"
+            )
         return _decrypt(key, envelope["result"])
 
     async def login_with_jwt(self, id_token: str, country_code: str = "",

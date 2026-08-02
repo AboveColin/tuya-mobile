@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import aiohttp
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -139,8 +140,9 @@ def _required_login(value: Any, context: str) -> dict[str, Any]:
             )
         if all(normalized[field] for field in aliases):
             return normalized
+    missing = "sid, ecode, uid"
     raise TuyaMobileApiError(
-        f"Tuya mobile {context} response is missing session fields: " "sid, ecode, uid"
+        f"Tuya mobile {context} response is missing session fields: {missing}"
     )
 
 

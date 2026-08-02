@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
 import hashlib
+from dataclasses import replace
 from unittest.mock import AsyncMock, Mock
 
 import aiohttp
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
 import pytest
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from tuya_mobile import (
     PurePythonTuyaSigner,
-    TuyaMobileApiError,
     TuyaDeviceCredentials,
     TuyaMobileAccountLocked,
+    TuyaMobileApiError,
     TuyaMobileAppProfile,
     TuyaMobileCaptchaRequired,
     TuyaMobileDeviceNotFound,
@@ -29,7 +29,7 @@ from tuya_mobile import (
     TuyaPasswordClient,
 )
 from tuya_mobile.client import TuyaMobileClient, _decrypt, _encrypt
-from tuya_mobile.password_client import _rsa_encrypt_password
+from tuya_mobile.password_client import MOBILE_LOGIN_APIS, _rsa_encrypt_password
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def profile() -> TuyaMobileAppProfile:
     return TuyaMobileAppProfile(
         name="Fixture app",
         app_id="fixture-app-id",
-        app_secret="fixture-app-secret",
+        app_secret="fixture-app-secret",  # noqa: S106 - deliberately fake
         cert_sha256_hex="11" * 32,
         app_key="fixture-app-key",
         package="com.example.fixture",
@@ -174,33 +174,33 @@ async def test_phone_login_has_a_hard_attempt_budget(
     profile: TuyaMobileAppProfile, token_result: dict[str, str]
 ) -> None:
     """Variant probing cannot exceed the configured password-attempt budget."""
+    attempt_budget = 3
+    assert len(MOBILE_LOGIN_APIS) > attempt_budget
     client = TuyaPasswordClient(
         profile,
         Mock(),
         username="0612345678",
-        max_login_attempts=3,
+        max_login_attempts=attempt_budget,
     )
     unsupported = {"success": False, "errorCode": "API_NOT_SUPPORTED"}
     client._call = AsyncMock(
         side_effect=[
-            token_result,
-            unsupported,
-            token_result,
-            unsupported,
-            token_result,
-            unsupported,
+            response
+            for _ in range(attempt_budget)
+            for response in (token_result, unsupported)
         ]
     )
 
-    with pytest.raises(TuyaMobileLoginAttemptsExceeded, match="3 of 3"):
+    expected_budget_message = f"{attempt_budget} of {attempt_budget}"
+    with pytest.raises(TuyaMobileLoginAttemptsExceeded, match=expected_budget_message):
         await client.login_with_password("private-password", "33")
 
-    assert client._call.await_count == 6
+    assert client._call.await_count == attempt_budget * 2
 
 
 @pytest.mark.parametrize(
     "timeout",
-    (asyncio.TimeoutError(), aiohttp.ServerTimeoutError()),
+    [asyncio.TimeoutError(), aiohttp.ServerTimeoutError()],
 )
 async def test_timeout_is_typed_and_never_retries_a_password_submission(
     profile: TuyaMobileAppProfile,
@@ -301,11 +301,11 @@ async def test_incomplete_response_is_not_misreported_as_expired_profile(
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    (
+    [
         ("localKey", "too-short"),
         ("secKey", "too-short"),
         ("secKey", "123456789012345é"),
-    ),
+    ],
 )
 async def test_device_credentials_validate_both_keys(
     profile: TuyaMobileAppProfile,
@@ -391,12 +391,12 @@ async def test_device_credentials_require_exact_device_match(
 
 @pytest.mark.parametrize(
     ("code", "exception"),
-    (
+    [
         ("PASSWORD_ERROR", TuyaMobileInvalidAuth),
         ("CAPTCHA_REQUIRED", TuyaMobileCaptchaRequired),
         ("ACCOUNT_LOCKED", TuyaMobileAccountLocked),
         ("ILLEGAL_CLIENT", TuyaMobileProfileExpired),
-    ),
+    ],
 )
 async def test_login_errors_are_typed_and_redacted(
     profile: TuyaMobileAppProfile,
@@ -444,8 +444,9 @@ def test_client_uses_encrypted_signer_and_stable_installation_id(
 def test_password_wire_encoding_is_md5_then_rsa_pkcs1v15() -> None:
     """The password payload matches the documented mobile login encoding."""
     # A small key keeps this protocol-fixture test fast; it protects no data.
-    private_key = rsa.generate_private_key(  # noqa: S505
-        public_exponent=65537, key_size=1024
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=1024,  # noqa: S505
     )
     numbers = private_key.public_key().public_numbers()
     encrypted = _rsa_encrypt_password(
@@ -458,7 +459,14 @@ def test_password_wire_encoding_is_md5_then_rsa_pkcs1v15() -> None:
 
     decrypted = private_key.decrypt(bytes.fromhex(encrypted), padding.PKCS1v15())
 
-    assert decrypted == hashlib.md5(b"private-password").hexdigest().encode("ascii")
+    expected = (
+        hashlib.md5(  # noqa: S324 - Tuya protocol fixture
+            b"private-password", usedforsecurity=False
+        )
+        .hexdigest()
+        .encode("ascii")
+    )
+    assert decrypted == expected
 
 
 async def test_transport_uses_every_versioned_profile_wire_field(

@@ -30,6 +30,7 @@ from .models import (
     TuyaMobileAppProfile,
     TuyaMobileSession,
 )
+from .profiles import TuyaMobileApp, get_mobile_app_profile
 from .signer import PurePythonTuyaSigner
 
 TOKEN_API = ("thing.m.user.username.token.get", "2.0")
@@ -167,6 +168,27 @@ def _rsa_encrypt_password(password: str, token: dict[str, Any]) -> str:
 
 class TuyaPasswordClient(TuyaMobileClient):
     """Encrypted Tuya mobile client with password authentication."""
+
+    @classmethod
+    def for_application(
+        cls,
+        application: TuyaMobileApp | str,
+        session: aiohttp.ClientSession,
+        *,
+        username: str,
+        endpoint: str | None = None,
+        request_timeout: float = 20,
+        max_login_attempts: int = DEFAULT_MAX_LOGIN_ATTEMPTS,
+    ) -> TuyaPasswordClient:
+        """Create a client from an explicitly selected bundled profile."""
+        return cls(
+            get_mobile_app_profile(application),
+            session,
+            username=username,
+            endpoint=endpoint,
+            request_timeout=request_timeout,
+            max_login_attempts=max_login_attempts,
+        )
 
     def __init__(
         self,

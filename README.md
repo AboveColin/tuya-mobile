@@ -10,8 +10,8 @@ Python (HMAC-SHA256 / SHA256 / MD5 over ASCII) — so you can call the Tuya mobi
 API with **no external signer service, no qemu, and no native `.so`**.
 
 It is **generic across Tuya-based apps**: only a handful of *application*
-constants differ per app (extracted from that app's APK). Supply them and it
-works.
+constants differ per app. Versioned Smart Life and Tuya Smart profiles are
+included; callers can supply a profile for any other Tuya-based application.
 
 ## What it provides
 
@@ -24,6 +24,10 @@ works.
   password login and atomic `localKey` + `secKey` retrieval for a specific
   device. Passwords and session tokens are never written to durable storage;
   authenticated session state is retained only in memory for subsequent calls.
+- **`TuyaPasswordClient.for_application(application, …)`** — create that client
+  directly from an explicitly selected bundled application profile.
+- **`get_mobile_app_profile(application)`** — explicit selection of a bundled,
+  versioned Smart Life or Tuya Smart application identity.
 - **`mqtt_credentials(signer, uid=…, ecode=…, partner_id=…)`** — MQTT broker
   username/password + signaling topics for the `smart/mb` channel.
 - **`mqtt_client_id(package)`** — isolated mobile-format client ID for a
@@ -31,12 +35,27 @@ works.
 - **`NativeTuyaSigner`** — optional legacy fallback that shells out to an
   external signer (executable or HTTP), for parity/testing.
 
-## App credentials
+## Application profiles
 
-The five app constants (`app_id`, `app_secret`, `cert_sha256_hex`, `app_key`,
-`package`) are the only app-specific inputs; the algorithm is identical across
-Tuya apps. This package intentionally ships **no** vendor credentials — the
-caller supplies them (e.g. `petsseries` supplies the Philips Pet Series values).
+Smart Life and Tuya Smart use different signing identities and request
+metadata, so callers select the application explicitly. The package never
+probes another application profile after an authentication failure.
+
+```python
+from tuya_mobile import TuyaMobileApp, get_mobile_app_profile
+
+profile = get_mobile_app_profile(TuyaMobileApp.SMART_LIFE)
+```
+
+Each bundled profile is an immutable snapshot of one public Android application
+build. The profile carries its app and SDK versions because those values may
+rotate in a future build. The five signing constants (`app_id`, `app_secret`,
+`cert_sha256_hex`, `app_key`, and `package`) are application-level inputs, not
+user credentials.
+
+Other Tuya-based applications remain supported through a caller-supplied
+`TuyaMobileAppProfile`; for example, `petsseries` supplies the Philips Pet
+Series values.
 
 ## Usage
 
@@ -59,10 +78,23 @@ profiles contain the version-specific APK constants used to identify and sign
 as that application: `app_id`, `app_secret`, certificate SHA-256, `app_key`, and
 package name. They also carry the request's app version, SDK/core versions,
 channel, platform, `ttid`, `et`, optional React Native version, and optional
-business domain. These are application-level inputs, not user credentials;
-this package deliberately does not bundle a Smart Life or Tuya Smart profile.
+business domain. Callers can use a bundled profile or construct their own.
 `TuyaPasswordClient` passes the profile inputs to `PurePythonTuyaSigner`, which
 remains the sole implementation of derived global material and `chKey`.
+
+```python
+import aiohttp
+from tuya_mobile import TuyaMobileApp, TuyaPasswordClient
+
+async with aiohttp.ClientSession() as session:
+    client = TuyaPasswordClient.for_application(
+        TuyaMobileApp.SMART_LIFE,
+        session,
+        username="owner@example.com",
+    )
+    await client.login_with_password(password, country_code="33")
+    credentials = await client.get_device_credentials(device_id)
+```
 
 Telephone endpoint probing is bounded to three password submissions by default.
 Every permitted variant receives a fresh short-lived token, and only an

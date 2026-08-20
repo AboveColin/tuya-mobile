@@ -2,9 +2,8 @@
 
 A dependency-free reimplementation of Tuya's ``thing_security`` mobile-app
 request signing, the encrypted mobile API client, and the MQTT signaling
-credential derivation. Generic across Tuya-based apps — supply your app's Tuya
-application credentials (extracted from its APK) and it works with no external
-signer service, no qemu, and no native libraries.
+credential derivation. It includes versioned Smart Life and Tuya Smart profiles
+and accepts caller-supplied profiles for other Tuya-based applications.
 """
 
 from .signer import (
@@ -35,6 +34,10 @@ from .models import (
 )
 from .mqtt_auth import mqtt_client_id, mqtt_credentials, mqtt_password, mqtt_username
 from .password_client import TuyaPasswordClient
+from .profiles import (
+    TuyaMobileApp,
+    get_mobile_app_profile,
+)
 
 __all__ = [
     "PurePythonTuyaSigner",
@@ -44,7 +47,9 @@ __all__ = [
     "TuyaMobileClient",
     "canonical_string",
     "TuyaPasswordClient",
+    "TuyaMobileApp",
     "TuyaMobileAppProfile",
+    "get_mobile_app_profile",
     "TuyaMobileSession",
     "TuyaDeviceCredentials",
     "TuyaMobileError",

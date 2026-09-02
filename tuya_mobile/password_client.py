@@ -30,7 +30,11 @@ from .models import (
     TuyaMobileAppProfile,
     TuyaMobileSession,
 )
-from .profiles import TuyaMobileApp, get_mobile_app_profile
+from .profiles import (
+    TuyaMobileApp,
+    _is_bundled_mobile_app_profile,
+    get_mobile_app_profile,
+)
 from .signer import PurePythonTuyaSigner
 
 TOKEN_API = ("thing.m.user.username.token.get", "2.0")
@@ -57,7 +61,11 @@ def _walk(value: Any) -> Iterable[dict[str, Any]]:
             yield from _walk(child)
 
 
-def _business_error(value: Any, context: str) -> TuyaMobileApiError | None:
+def _business_error(
+    value: Any,
+    context: str,
+    profile: TuyaMobileAppProfile | None = None,
+) -> TuyaMobileApiError | None:
     for response in _walk(value):
         if response.get("success") is not False and not response.get("errorCode"):
             continue
@@ -87,6 +95,11 @@ def _business_error(value: Any, context: str) -> TuyaMobileApiError | None:
             item in marker
             for item in ("CLIENT", "SIGN", "APP VERSION", "ILLEGAL APP", "APPKEY")
         ):
+            if profile is not None and _is_bundled_mobile_app_profile(profile):
+                return TuyaMobileProfileExpired(
+                    f"bundled {profile.name} profile {profile.app_version} was "
+                    "rejected; the app build has probably rotated"
+                )
             return TuyaMobileProfileExpired(safe_message)
         if any(
             item in marker
@@ -97,8 +110,14 @@ def _business_error(value: Any, context: str) -> TuyaMobileApiError | None:
     return None
 
 
-def _required_dict(value: Any, fields: set[str], context: str) -> dict[str, Any]:
-    if error := _business_error(value, context):
+def _required_dict(
+    value: Any,
+    fields: set[str],
+    context: str,
+    *,
+    profile: TuyaMobileAppProfile | None = None,
+) -> dict[str, Any]:
+    if error := _business_error(value, context, profile):
         raise error
     for candidate in _walk(value):
         if fields.issubset(candidate):
@@ -125,8 +144,13 @@ def _normalized_mobile(username: str, country_code: str) -> str:
     return mobile
 
 
-def _required_login(value: Any, context: str) -> dict[str, Any]:
-    if error := _business_error(value, context):
+def _required_login(
+    value: Any,
+    context: str,
+    *,
+    profile: TuyaMobileAppProfile | None = None,
+) -> dict[str, Any]:
+    if error := _business_error(value, context, profile):
         raise error
     aliases = {
         "sid": ("sid", "session", "sessionId"),
@@ -176,18 +200,14 @@ class TuyaPasswordClient(TuyaMobileClient):
         session: aiohttp.ClientSession,
         *,
         username: str,
-        endpoint: str | None = None,
-        request_timeout: float = 20,
-        max_login_attempts: int = DEFAULT_MAX_LOGIN_ATTEMPTS,
+        **client_kwargs: Any,
     ) -> TuyaPasswordClient:
         """Create a client from an explicitly selected bundled profile."""
         return cls(
             get_mobile_app_profile(application),
             session,
             username=username,
-            endpoint=endpoint,
-            request_timeout=request_timeout,
-            max_login_attempts=max_login_attempts,
+            **client_kwargs,
         )
 
     def __init__(
@@ -238,7 +258,9 @@ class TuyaPasswordClient(TuyaMobileClient):
             ) from error
         except RuntimeError as error:
             typed = _business_error(
-                {"errorCode": "MOBILE_API", "errorMsg": str(error)}, action
+                {"errorCode": "MOBILE_API", "errorMsg": str(error)},
+                action,
+                self.profile,
             )
             raise typed or TuyaMobileApiError(
                 f"Tuya mobile request failed for {action}"
@@ -301,6 +323,7 @@ class TuyaPasswordClient(TuyaMobileClient):
                 token_envelope,
                 {"publicKey", "exponent", "token"},
                 "login token",
+                profile=self.profile,
             )
         raise last_transport or TuyaMobileTransportError(
             "No Tuya mobile endpoint accepted the request"
@@ -329,7 +352,7 @@ class TuyaPasswordClient(TuyaMobileClient):
         """Submit a password exactly once and account for that attempt."""
         self._claim_login_attempt()
         response = await self._mobile_call(action, version, payload)
-        return _required_login(response, context)
+        return _required_login(response, context, profile=self.profile)
 
     async def _login_mobile(
         self,
@@ -386,7 +409,7 @@ class TuyaPasswordClient(TuyaMobileClient):
             *DEVICE_CREDENTIALS_API,
             {"devId": device_id},
         )
-        if error := _business_error(response, "device credentials"):
+        if error := _business_error(response, "device credentials", self.profile):
             raise error
         device = next(
             (

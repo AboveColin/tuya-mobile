@@ -51,7 +51,8 @@ Each bundled profile is an immutable snapshot of one public Android application
 build. The profile carries its app and SDK versions because those values may
 rotate in a future build. The five signing constants (`app_id`, `app_secret`,
 `cert_sha256_hex`, `app_key`, and `package`) are application-level inputs, not
-user credentials.
+user credentials. They come from public Android builds and are already published
+in several open-source projects, so this package is not a user credential store.
 
 Other Tuya-based applications remain supported through a caller-supplied
 `TuyaMobileAppProfile`; for example, `petsseries` supplies the Philips Pet

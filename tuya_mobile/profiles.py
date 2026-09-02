@@ -12,7 +12,10 @@ __all__ = ["TuyaMobileApp", "get_mobile_app_profile"]
 
 
 class TuyaMobileApp(str, Enum):
-    """Official Tuya mobile applications with bundled profiles."""
+    """Official Tuya mobile applications with bundled profiles.
+
+    Use ``.value`` whenever a member crosses a serialization or request boundary.
+    """
 
     SMART_LIFE = "smart_life"
     TUYA_SMART = "tuya_smart"
@@ -66,6 +69,11 @@ _MOBILE_APP_PROFILES: Mapping[TuyaMobileApp, TuyaMobileAppProfile] = MappingProx
         TuyaMobileApp.TUYA_SMART: _TUYA_SMART_PROFILE,
     }
 )
+
+
+def _is_bundled_mobile_app_profile(profile: TuyaMobileAppProfile) -> bool:
+    """Return whether a profile is one of the immutable bundled instances."""
+    return any(profile is bundled for bundled in _MOBILE_APP_PROFILES.values())
 
 
 def get_mobile_app_profile(

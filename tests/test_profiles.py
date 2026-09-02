@@ -80,10 +80,16 @@ def test_builtin_profiles_are_immutable_and_redacted() -> None:
         assert profile.cert_sha256_hex not in rendered
 
 
-def test_password_client_resolves_a_bundled_application_profile() -> None:
+@pytest.mark.parametrize(
+    "application",
+    [TuyaMobileApp.SMART_LIFE, TuyaMobileApp.SMART_LIFE.value],
+)
+def test_password_client_resolves_a_bundled_application_profile(
+    application: TuyaMobileApp | str,
+) -> None:
     """Official applications need no caller-constructed profile."""
     client = TuyaPasswordClient.for_application(
-        TuyaMobileApp.SMART_LIFE,
+        application,
         Mock(),
         username="owner@example.com",
         endpoint="https://example.invalid/api.json",
@@ -92,6 +98,7 @@ def test_password_client_resolves_a_bundled_application_profile() -> None:
     )
 
     assert client.profile is get_mobile_app_profile(TuyaMobileApp.SMART_LIFE)
+    assert client.username == "owner@example.com"
     assert client.mobile_url == "https://example.invalid/api.json"
     assert client.request_timeout == 7
     assert client.max_login_attempts == 2

@@ -16,6 +16,7 @@ from tuya_mobile import (
     TuyaDeviceCredentials,
     TuyaMobileAccountLocked,
     TuyaMobileApiError,
+    TuyaMobileApp,
     TuyaMobileAppProfile,
     TuyaMobileCaptchaRequired,
     TuyaMobileDeviceNotFound,
@@ -27,6 +28,7 @@ from tuya_mobile import (
     TuyaMobileSession,
     TuyaMobileTransportError,
     TuyaPasswordClient,
+    get_mobile_app_profile,
 )
 from tuya_mobile.client import TuyaMobileClient, _decrypt, _encrypt
 from tuya_mobile.password_client import MOBILE_LOGIN_APIS, _rsa_encrypt_password
@@ -420,6 +422,55 @@ async def test_login_errors_are_typed_and_redacted(
     with pytest.raises(exception) as raised:
         await client.login_with_password("private-password", "33")
 
+    assert "private-password" not in str(raised.value)
+    assert "fixture-session" not in str(raised.value)
+    if exception is TuyaMobileProfileExpired:
+        assert "bundled" not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("application", "expected_message"),
+    [
+        (
+            TuyaMobileApp.SMART_LIFE,
+            "bundled Smart Life profile 7.10.0 was rejected; "
+            "the app build has probably rotated",
+        ),
+        (
+            TuyaMobileApp.TUYA_SMART,
+            "bundled Tuya Smart profile 7.8.6 was rejected; "
+            "the app build has probably rotated",
+        ),
+    ],
+)
+@pytest.mark.parametrize("rejection_stage", ["token", "login"])
+async def test_bundled_profile_rotation_error_identifies_profile(
+    token_result: dict[str, str],
+    application: TuyaMobileApp,
+    expected_message: str,
+    rejection_stage: str,
+) -> None:
+    """Bundled profile rejections identify the likely rotated app build."""
+    client = TuyaPasswordClient.for_application(
+        application,
+        Mock(),
+        username="owner@example.com",
+    )
+    rejection = {
+        "success": False,
+        "errorCode": "ILLEGAL_CLIENT",
+        "errorMsg": "private-password fixture-session",
+    }
+    responses = [rejection]
+    if rejection_stage == "login":
+        responses.insert(0, token_result)
+    client._call = AsyncMock(side_effect=responses)
+
+    with pytest.raises(TuyaMobileProfileExpired) as raised:
+        await client.login_with_password("private-password", "33")
+
+    assert str(raised.value) == expected_message
+    assert client.profile is get_mobile_app_profile(application)
     assert "private-password" not in str(raised.value)
     assert "fixture-session" not in str(raised.value)
 

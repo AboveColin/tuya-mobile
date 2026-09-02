@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tuya-mobile"
-version = "1.1.0"
+version = "1.2.0"
 description = "Pure-Python Tuya mobile-app API signer, client, and MQTT signaling credentials (no native libs, no qemu)"
 readme = "README.md"
 requires-python = ">=3.9"

@@ -106,6 +106,13 @@ is unknowable. Callers can lower the budget with `max_login_attempts`.
 Interactive captcha, MFA, QR, and social logins raise typed exceptions so a
 caller can safely offer manual device credentials instead.
 
+## Supporting the project
+
+This project is free and stays free. If it is useful to you, you can support its
+development through [GitHub Sponsors](https://github.com/sponsors/AboveColin).
+Sponsorship is voluntary and unlocks nothing: every feature, fix and security
+update ships in the public release.
+
 ## License
 
 MIT.
